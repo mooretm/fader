@@ -3,6 +3,7 @@
 
 # Import data science packages
 import numpy as np
+from matplotlib import pyplot as plt
 from scipy import signal
 
 # Import custom modules
@@ -12,12 +13,31 @@ from tmsignals import deg2rad, rad2deg, mag2db, db2mag
 ####################
 # Filter functions #
 ####################
-def butter_filt(sig, type, cutoff, order, fs=48000):
+def filt_freq_response(b, a, nyq):
+    w, h = signal.freqz(b, a)
+    plt.semilogx((nyq / np.pi) * w, abs(h))
+    plt.grid(True)
+    plt.axvline(1000, c='g')
+    plt.ylabel('Gain')
+    plt.xlabel('Frequency (Hz)')
+    plt.title("Butterworth filter frequency response")
+    plt.show()
+
+
+def butter_filt(sig, type, cutoff, order, fs, plts):
     nyq = 0.5 * fs
     norm_cutoff = cutoff / nyq
     b, a = signal.butter(order, norm_cutoff, btype=type, analog=False)
     y = signal.filtfilt(b, a, sig)
+
+    if plts == 'y':
+        filt_freq_response(b, a, nyq)
+    
     return y
+
+
+
+
 
 
 def mk_gate(sig, win_dur, fs):
@@ -61,4 +81,4 @@ def mk_gate2(sig, steady_dur, trans_dur, fs):
 
     gated = np.array(envelope) * np.array(sig)
 
-    return gated
+    return gated, envelope

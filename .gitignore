@@ -1,2 +1,5 @@
 __pycache__
 *.wav
+/audio_files_in
+/audio_files_out
+/Junk
