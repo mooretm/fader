@@ -13,11 +13,11 @@ from tmsignals import deg2rad, rad2deg, mag2db, db2mag
 ####################
 # Filter functions #
 ####################
-def filt_freq_response(b, a, nyq):
+def filt_freq_response(b, a, nyq, cutoff):
     w, h = signal.freqz(b, a)
     plt.semilogx((nyq / np.pi) * w, abs(h))
     plt.grid(True)
-    plt.axvline(1000, c='g')
+    plt.axvline(cutoff, c='g')
     plt.ylabel('Gain')
     plt.xlabel('Frequency (Hz)')
     plt.title("Butterworth filter frequency response")
@@ -31,7 +31,7 @@ def butter_filt(sig, type, cutoff, order, fs, plts):
     y = signal.filtfilt(b, a, sig)
 
     if plts == 'y':
-        filt_freq_response(b, a, nyq)
+        filt_freq_response(b, a, nyq, cutoff)
     
     return y
 
