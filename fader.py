@@ -35,7 +35,7 @@ babble_obj = Audio('.\\audio_files_in\\CST_Babble_4.wav', -20)
 FS = speech_obj.fs
 
 # Define minimum gain (0 - 1)
-FLOOR = 0.325
+FLOOR = 0.25 #0.325
 
 # Define stable portions
 # 0 for transition only (no stable portions)
@@ -49,12 +49,16 @@ STABLE = 2
 DELAY = int(np.ceil((5 / 1000) * FS))
 print(f"DELAY: {DELAY} samples")
 
+# Drop in RMS for direct path signal compared
+# to DEM signal
+DROP = 6 # in dB
+
 
 #########
 # BEGIN #
 #########
 # The range of delta Ts to use
-for t in range(1,21):
+for t in range(3,4):
     # Set duration parameters in seconds
     stable_dur = 5
     delta_t = t
@@ -68,7 +72,14 @@ for t in range(1,21):
     # Grab audio clips based on total_dur
     speech = speech_obj.working_audio[0:total_dur_samps]
     babble = babble_obj.working_audio[0:total_dur_samps]
+
+    speech = ts.setRMS(speech, -25)
+    babble = ts.setRMS(babble, -25)
+
     combo = speech + babble
+
+    combo_rms = ts.mag2db(ts.rms(combo))
+    print(f"RMS of speech+babble: {combo_rms}")
 
     #plt.plot(combo)
     #plt.title('Original Signal')
@@ -145,26 +156,29 @@ for t in range(1,21):
 
 
     # Begin plotting signal with polygon highlights
-    plt.plot(combo_low, c='b')
-    plt.plot(sig_gated, c='g')
+    def mk_plot_poly():
+        plt.plot(combo_low, c='b')
+        plt.plot(sig_gated, c='g')
 
-    # First RMS region
-    if (STABLE == 1) or (STABLE == 2):
-        coord = [[0,-1], [0,1], [edge1,1], [edge1,-1]]
-        coord.append(coord[0]) # repeat the first point to create a 'closed loop'
-        # Plot polygon
-        xs, ys = zip(*coord) # create lists of x and y values
-        plt.fill(xs, ys, edgecolor='none', facecolor="lightsalmon", alpha=0.25)
+        # First RMS region
+        if (STABLE == 1) or (STABLE == 2):
+            coord = [[0,-1], [0,1], [edge1,1], [edge1,-1]]
+            coord.append(coord[0]) # repeat the first point to create a 'closed loop'
+            # Plot polygon
+            xs, ys = zip(*coord) # create lists of x and y values
+            plt.fill(xs, ys, edgecolor='none', facecolor="lightsalmon", alpha=0.25)
 
-    if STABLE == 2:
-        # Second RMS region
-        coord = [[edge2,-1], [edge2,1], [len(sig_gated),1], [len(sig_gated),-1]]
-        coord.append(coord[0]) # repeat the first point to create a 'closed loop'
-        # Plot polygon
-        xs, ys = zip(*coord) # create lists of x and y values
-        plt.fill(xs, ys, edgecolor='none', facecolor="lightsalmon", alpha=0.25)
+        if STABLE == 2:
+            # Second RMS region
+            coord = [[edge2,-1], [edge2,1], [len(sig_gated),1], [len(sig_gated),-1]]
+            coord.append(coord[0]) # repeat the first point to create a 'closed loop'
+            # Plot polygon
+            xs, ys = zip(*coord) # create lists of x and y values
+            plt.fill(xs, ys, edgecolor='none', facecolor="lightsalmon", alpha=0.25)
 
-    #plt.show()
+        plt.show()
+
+    #mk_plot_poly()
 
 
     ####################
@@ -172,17 +186,21 @@ for t in range(1,21):
     ####################
     # Apply delay to sig
     sig = sig[:-DELAY]
+
     # Truncate direct path to match sig length
     combo_direct = combo_direct[DELAY:]
+    combo_direct = ts.setRMS(combo_direct, combo_rms-DROP)
+    print(f"DEM total RMS: {ts.mag2db(ts.rms(sig))}")
+    print(f"Direct path total RMS: {ts.mag2db(ts.rms(combo_direct))}")
 
     # Combine DEM and direct path signals
     final_sig = sig + combo_direct
-    final_sig = ts.doNormalize(final_sig, FS)
+    #final_sig = ts.doNormalize(final_sig, FS)
 
     # Calculate RMS drop using stable periods
     if STABLE == 2:
-        start_rms = ts.mag2db(ts.rms(sig_gated[0:edge1]))
-        end_rms = ts.mag2db(ts.rms(sig_gated[edge2:]))
+        start_rms = ts.mag2db(ts.rms(sig[0:edge1]))
+        end_rms = ts.mag2db(ts.rms(sig[edge2:]))
         #print(f"Dry RMS: {start_rms}")
         #print(f"Wet RMS: {end_rms}")
         print(f"DEM RMS drop: {np.round(abs(start_rms) - abs(end_rms), 2)} dB")
@@ -217,12 +235,12 @@ for t in range(1,21):
         plt.plot(final_sig, label="DEM + Direct Path")
         plt.plot(sig, label="DEM")
         plt.title('Time Waveforms')
-        plt.legend()
+        plt.legend(loc='upper right')
         plt.show()
 
 
     #mk_plot2()
-    #mk_plot3()
+    mk_plot3()
 
 
     #################
@@ -232,4 +250,4 @@ for t in range(1,21):
     #sd.wait(total_dur)
 
     # Write .wav files
-    #wavfile.write('.\\audio_files_out\\LFG_' + str(t) + '.wav', speech_obj.fs, sig)
+    #wavfile.write('.\\audio_files_out\\LFG_' + str(t) + '.wav', FS, final_sig)
