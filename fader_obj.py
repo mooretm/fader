@@ -2,7 +2,7 @@
 
     Author: Travis M. Moore
     Created: 19 Aug, 2022
-    Last Edited: 13 Sep, 2022
+    Last Edited: 14 Sep, 2022
 """
 
 ###########
@@ -55,12 +55,6 @@ class Fader():
             *self.low
             *self.direct
         """
-
-
-    def run_sim(self):
-        """Left empty for overriding by subclasses
-        """
-        pass
 
 
     def run(self, sig_decrease, sig_stable=None):
@@ -353,33 +347,3 @@ class Fader():
         plt.title('Time Waveforms')
         plt.legend(loc='upper right')
         plt.show()
-
-
-class LFG_Fader(Fader):
-    def run_sim(self, sig_decrease, sig_stable):
-        self.mk_segments(sig_decrease=sig_decrease) # universal; adds attributes instead of returning anything
-        self.do_fade(sig_decrease=sig_decrease) # by condition
-        self.ha_out(sig_stable=sig_stable)
-
-        if self.DIRECT_PATH == 'y':
-            self.add_direct_path()
-
-
-class HFG_Fader(Fader):
-    def run_sim(self, sig_decrease, sig_stable):
-        self.mk_segments(sig_decrease=sig_decrease)
-        self.do_fade(sig_decrease=sig_decrease)
-        self.ha_out(sig_stable=sig_stable)
-        
-        if self.DIRECT_PATH == 'y':
-            self.add_direct_path()
-        
-
-class OAG_Fader(Fader):
-    def run_sim(self, sig_decrease):
-        self.mk_segments(sig_decrease=sig_decrease)
-        self.do_fade(sig_decrease=sig_decrease)
-        self.ha_out(sig_stable=None)
-
-        if self.DIRECT_PATH == 'y':
-            self.add_direct_path()

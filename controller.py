@@ -11,9 +11,9 @@ from fader_obj import Fader
 import tmsignals as ts
 
 
-#####################
-# Initialize Values #
-#####################
+####################
+# Initialize Audio #
+####################
 # Read in audio with SNR of 0
 speech_obj = Audio('.\\audio_files_in\\CST_Speech_Trunc.wav', -20)
 babble_obj = Audio('.\\audio_files_in\\CST_Babble_4.wav', -20)
@@ -23,14 +23,16 @@ speech = speech_obj.working_audio
 babble = babble_obj.working_audio[0:len(speech)]
 combo = speech + babble
 
-# Set parameters
+
+#################
+# Set constants #
+#################
 SIGNAL = combo
 FS = speech_obj.fs
 TRANS_DUR = 3
 FLOOR = ts.db2mag(-10)
 GAIN = 6
 DIRECT_PATH = 'y'
-
 
 
 """Run simulation"""
