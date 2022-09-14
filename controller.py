@@ -91,3 +91,18 @@ print('HFG')
 print('-' * 70)
 hfg.run(sig_decrease=hfg.high, sig_stable=hfg.low)
 print('\n')
+
+
+#########
+# Plots #
+#########
+"""
+oag.plot_segments(sig_ungated=oag.signal)
+oag.plot_overlay()
+
+lfg.plot_segments(sig_ungated=lfg.low)
+lfg.plot_overlay()
+
+hfg.plot_segments(sig_ungated=hfg.high)
+hfg.plot_overlay()
+"""

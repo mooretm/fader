@@ -58,12 +58,16 @@ class Fader():
 
 
     def run(self, sig_decrease, sig_stable=None):
+        """Call functions in order to create final signal.
+        """
         self.mk_segments(sig_decrease=sig_decrease)
         self.do_fade(sig_decrease=sig_decrease)
         self.ha_out(sig_stable=sig_stable)
         
         if self.DIRECT_PATH == 'y':
             self.add_direct_path()
+
+        self.calc_rms()
 
 
     def _calc_samps(self):
@@ -135,7 +139,8 @@ class Fader():
             (self.stable_dur_samps + self.trans_dur_samps)]
 
         # End clip
-        self.sig_end = sig_decrease[(self.stable_dur_samps+self.trans_dur_samps):]
+        self.sig_end = sig_decrease[(self.stable_dur_samps 
+            + self.trans_dur_samps):]
         
         # Define edge regions
         self.edge1 = (self.STABLE_DUR) * self.FS
@@ -143,7 +148,9 @@ class Fader():
 
 
     def do_fade(self, sig_decrease):
-        # Fade out low-frequencies
+        """Apply ramp to signal
+        """
+        # Create ramp
         self.start_env = np.ones(len(self.sig_start))
         self.trans_env = np.linspace(1, self.FLOOR, len(self.sig_trans))
         self.end_env = np.repeat(self.FLOOR, len(self.sig_end))
@@ -160,8 +167,12 @@ class Fader():
         elif self.STABLE == 'none':
             sig_decrease = sig_decrease[0:len(self.sig_trans)]
             self.envelope == self.trans_env
+
+        else:
+            raise NameError("Invalid selection for 'STABLE.'" +
+                "Options are: 'both', 'start', and 'none.'")
         
-        # Create gated signal
+        # Apply ramp to signal
         self.sig_gated = sig_decrease * self.envelope
 
 
@@ -173,6 +184,7 @@ class Fader():
             # Add gated and stable signals
             self.ha_sig = self.sig_gated + self.sig_stable
         else:
+            print('ha_sig = sig_gated test')
             self.ha_sig = self.sig_gated
 
         # Set final_sig as ha_sig
@@ -186,41 +198,43 @@ class Fader():
         # Truncate direct path sound to match ha out
         self.direct = self.direct[0:len(self.ha_sig)]
 
-        # Apply delay to sig
-        self.ha_sig= self.ha_sig[:-self.DELAY]
+        # Apply delay to ha out signal
+        self.ha_sig = self.ha_sig[0:-self.DELAY]
 
-        # Truncate direct path to match sig length
+        # Apply delay to direct path signal
         self.direct = self.direct[self.DELAY:]
 
         # Caculcate RMS of truncated signal
-        signal_rms = np.round(ts.mag2db(ts.rms(self.signal)), 2)
+        self.signal_rms = np.round(ts.mag2db(ts.rms(self.signal)), 2)
 
         # Reduce RMS of direct path by self.DROP
-        self.direct = ts.setRMS(self.direct, signal_rms-self.DROP)
-
-        # Provide update to console
-        print(f"Original signal RMS: {signal_rms} dB")
-        print(f"HA signal RMS: {np.round(ts.mag2db(ts.rms(self.ha_sig)), 2)} dB")
-        print(f"Direct path signal RMS: {np.round(ts.mag2db(ts.rms(self.direct)), 2)} dB\n")
+        self.direct = ts.setRMS(self.direct, self.signal_rms-self.DROP)
 
         # Combine HA signal and direct path signals
         self.final_sig = self.ha_sig + self.direct
 
+
+    def calc_rms(self):
+        # Provide update to console
+        print(f"Original signal RMS: {self.signal_rms} dB")
+        print(f"HA signal RMS: {np.round(ts.mag2db(ts.rms(self.ha_sig)), 2)} dB")
+        print(f"Direct path signal RMS: {np.round(ts.mag2db(ts.rms(self.direct)), 2)} dB\n")
+
         # Calculate RMS drop using stable periods
         if self.STABLE == 'both':
-            start_rms = ts.mag2db(ts.rms(self.ha_sig[0:self.edge1]))
-            end_rms = ts.mag2db(ts.rms(self.ha_sig[self.edge2:]))
-            #print(f"\nDry RMS: {start_rms}")
-            #print(f"Wet RMS: {end_rms}")
+            ha_start_rms = ts.mag2db(ts.rms(self.sig_gated[0:self.edge1]))
+            ha_end_rms = ts.mag2db(ts.rms(self.sig_gated[self.edge2:]))
+            #print(f"\nDry RMS: {ha_start_rms}")
+            #print(f"Wet RMS: {ha_end_rms}")
             print("HA signal RMS drop: " +
-                f"{np.round(abs(start_rms) - abs(end_rms), 2)} dB")
+                f"{np.round(ha_start_rms - ha_end_rms, 2)} dB")
 
-            start_rms = ts.mag2db(ts.rms(self.final_sig[0:self.edge1]))
-            end_rms = ts.mag2db(ts.rms(self.final_sig[self.edge2:]))
-            #print(f"Dry RMS: {start_rms}")
-            #print(f"Wet RMS: {end_rms}")
+            final_start_rms = ts.mag2db(ts.rms(self.final_sig[0:self.edge1]))
+            final_end_rms = ts.mag2db(ts.rms(self.final_sig[self.edge2:]))
+            #print(f"Dry RMS: {final_start_rms}")
+            #print(f"Wet RMS: {final_end_rms}")
             print("HA signal + direct path signal RMS drop: " +
-                f"{np.round(abs(start_rms) - abs(end_rms), 2)} dB")
+                f"{np.round(final_start_rms - final_end_rms, 2)} dB")
 
 
     def play_audio(self):
@@ -234,10 +248,10 @@ class Fader():
         sd.wait(self.total_dur)
 
 
-    def write_audio(self):
+    def write_audio(self, condition):
         """Write audio as .wav file
         """
-        wavfile.write('.\\audio_files_out\\LFG_' + str(self.TRANS_DUR) + '.wav', self.FS, self.final_sig)
+        wavfile.write('.\\audio_files_out\\' + condition + '_' + str(self.TRANS_DUR) + '.wav', self.FS, self.final_sig)
 
 
     ####################
