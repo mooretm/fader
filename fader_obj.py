@@ -29,18 +29,18 @@ import tmsignals as ts
 class Fader():
     """Change gain over time for selected frequency band
     """
-    def __init__(self, signal, fs, trans_dur, floor, direct_path):
+    def __init__(self, signal, fs, trans_dur, floor, gain, direct_path):
         self.signal = signal
         self.FLOOR = floor
         self.FS = fs
         self.TRANS_DUR = trans_dur
+        self.DROP = gain
         self.DIRECT_PATH = direct_path
 
         # Set initial values
         self.STABLE = 'both' # change to "start, end, both, none"
         self.STABLE_DUR = 5 # seconds
         self.DELAY = int(np.ceil((5/1000) * self.FS))
-        self.DROP = 6 # in dB
 
         # Truncate signal based on total duration
         self._set_audio_dur()
@@ -61,6 +61,15 @@ class Fader():
         """Left empty for overriding by subclasses
         """
         pass
+
+
+    def run(self, sig_decrease, sig_stable=None):
+        self.mk_segments(sig_decrease=sig_decrease)
+        self.do_fade(sig_decrease=sig_decrease)
+        self.ha_out(sig_stable=sig_stable)
+        
+        if self.DIRECT_PATH == 'y':
+            self.add_direct_path()
 
 
     def _calc_samps(self):
@@ -172,10 +181,6 @@ class Fader():
         else:
             self.ha_sig = self.sig_gated
 
-        # Truncate direct path sound to match filtered lows duration
-        if self.DIRECT_PATH == 'y':
-            self.direct = self.direct[0:len(self.sig_gated)]
-
         # Set final_sig as ha_sig
         # This is overriden if direct_path() is called
         self.final_sig = self.ha_sig
@@ -184,6 +189,9 @@ class Fader():
     def add_direct_path(self):
         """Add the direct path signal
         """
+        # Truncate direct path sound to match ha out
+        self.direct = self.direct[0:len(self.ha_sig)]
+
         # Apply delay to sig
         self.ha_sig= self.ha_sig[:-self.DELAY]
 
@@ -191,32 +199,32 @@ class Fader():
         self.direct = self.direct[self.DELAY:]
 
         # Caculcate RMS of truncated signal
-        signal_rms = ts.mag2db(ts.rms(self.signal))
+        signal_rms = np.round(ts.mag2db(ts.rms(self.signal)), 2)
 
         # Reduce RMS of direct path by self.DROP
         self.direct = ts.setRMS(self.direct, signal_rms-self.DROP)
 
         # Provide update to console
-        print(f"\nOriginal signal RMS: {signal_rms}")
-        print(f"HA signal RMS: {ts.mag2db(ts.rms(self.ha_sig))}")
-        print(f"Direct path signal RMS: {ts.mag2db(ts.rms(self.direct))}\n")
+        print(f"Original signal RMS: {signal_rms} dB")
+        print(f"HA signal RMS: {np.round(ts.mag2db(ts.rms(self.ha_sig)), 2)} dB")
+        print(f"Direct path signal RMS: {np.round(ts.mag2db(ts.rms(self.direct)), 2)} dB\n")
 
-        # Combine DEM and direct path signals
+        # Combine HA signal and direct path signals
         self.final_sig = self.ha_sig + self.direct
 
         # Calculate RMS drop using stable periods
         if self.STABLE == 'both':
             start_rms = ts.mag2db(ts.rms(self.ha_sig[0:self.edge1]))
             end_rms = ts.mag2db(ts.rms(self.ha_sig[self.edge2:]))
-            print(f"\nDry RMS: {start_rms}")
-            print(f"Wet RMS: {end_rms}")
+            #print(f"\nDry RMS: {start_rms}")
+            #print(f"Wet RMS: {end_rms}")
             print("HA signal RMS drop: " +
-                f"{np.round(abs(start_rms) - abs(end_rms), 2)} dB\n")
+                f"{np.round(abs(start_rms) - abs(end_rms), 2)} dB")
 
             start_rms = ts.mag2db(ts.rms(self.final_sig[0:self.edge1]))
             end_rms = ts.mag2db(ts.rms(self.final_sig[self.edge2:]))
-            print(f"Dry RMS: {start_rms}")
-            print(f"Wet RMS: {end_rms}")
+            #print(f"Dry RMS: {start_rms}")
+            #print(f"Wet RMS: {end_rms}")
             print("HA signal + direct path signal RMS drop: " +
                 f"{np.round(abs(start_rms) - abs(end_rms), 2)} dB")
 

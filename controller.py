@@ -7,12 +7,13 @@
 ###########
 # Import custom modules
 from models import Audio
-from fader_obj import Fader, HFG_Fader, LFG_Fader, OAG_Fader
+from fader_obj import Fader
+import tmsignals as ts
 
 
-#########
-# BEGIN #
-#########
+#####################
+# Initialize Values #
+#####################
 # Read in audio with SNR of 0
 speech_obj = Audio('.\\audio_files_in\\CST_Speech_Trunc.wav', -20)
 babble_obj = Audio('.\\audio_files_in\\CST_Babble_4.wav', -20)
@@ -22,82 +23,69 @@ speech = speech_obj.working_audio
 babble = babble_obj.working_audio[0:len(speech)]
 combo = speech + babble
 
-
-# OAG
-f = OAG_Fader(
-    signal=combo, 
-    fs=speech_obj.fs,
-    trans_dur=1,
-    floor=0.25,
-    direct_path='y'
-)
-
-f.run_sim(f.signal)
-#f.plot_segments(sig_ungated=f.signal)
-#f.plot_overlay()
-#f.play_audio()
-f.write_audio()
+# Set parameters
+SIGNAL = combo
+FS = speech_obj.fs
+TRANS_DUR = 3
+FLOOR = ts.db2mag(-10)
+GAIN = 6
+DIRECT_PATH = 'y'
 
 
 
-# LFG
-# f = LFG_Fader(
-#     signal=combo, 
-#     fs=speech_obj.fs,
-#     trans_dur=1,
-#     floor=0.25,
-#     direct_path='y'
-# )
-
-# f.run_sim(sig_decrease=f.low, sig_stable=f.high)
-# f.plot_high_low(lowpass=f.low, highpass=f.high)
-# f.plot_segments(sig_ungated=f.low)
-# f.plot_overlay()
-# f.play_audio()
-
-
-
-# HFG
-# f = HFG_Fader(
-#     signal=combo, 
-#     fs=speech_obj.fs,
-#     trans_dur=1,
-#     floor=0,
-#     direct_path='y'
-# )
-
-# f.run_sim(sig_decrease=f.high, sig_stable=f.low)
-# f.plot_high_low(lowpass=f.low, highpass=f.high)
-# f.plot_segments(sig_ungated=f.high)
-# f.plot_overlay()
-# f.play_audio()
-
-
-
-"""
-# Create fader object
-fader = Fader(
-    signal=combo, 
-    fs=speech_obj.fs,
-    trans_dur=4,
-    floor=0.25,
-    direct_path='y'
+"""Run simulation"""
+#######################
+# Overall Gain Change #
+#######################
+oag = Fader(
+    signal=SIGNAL,
+    fs=FS,
+    trans_dur=TRANS_DUR,
+    floor=FLOOR,
+    gain=GAIN,
+    direct_path=DIRECT_PATH
     )
 
-# Process the input audio
-fader.run_sim(sig_decrease=fader.high, sig_stable=fader.low)
+print('-' * 70)
+print('OAG')
+print('-' * 70)
+oag.run(sig_decrease=oag.signal, sig_stable=None)
+print('\n')
 
-# Plots
-#fader.mk_plot(lowpass=fader.low, highpass=fader.high)
-#fader.mk_plot(lowpass=fader.sig_stable, highpass=fader.sig_gated)
-fader.plot_segments()
-#fader.plot_delay()
-fader.plot_overlay()
 
-# Present audio
-#fader.play_audio()
+########################
+# Low Freq Gain Change #
+########################
+lfg = Fader(
+    signal=SIGNAL,
+    fs=FS,
+    trans_dur=TRANS_DUR,
+    floor=FLOOR,
+    gain=GAIN,
+    direct_path=DIRECT_PATH
+    )
 
-# Write audio
-#fader.write_audio()
-"""
+print('-' * 70)
+print('LFG')
+print('-' * 70)
+lfg.run(sig_decrease=lfg.low, sig_stable=lfg.high)
+print('\n')
 
+
+#########################
+# High Freq Gain Change #
+#########################
+hfg = Fader(
+    signal=SIGNAL,
+    fs=FS,
+    trans_dur=TRANS_DUR,
+    floor=FLOOR,
+    gain=GAIN,
+    direct_path=DIRECT_PATH
+    )
+
+print('-' * 70)
+print('HFG')
+print('-' * 70)
+hfg.run(sig_decrease=hfg.high, sig_stable=hfg.low)
+print('\n')
